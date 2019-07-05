@@ -1,24 +1,29 @@
 __author__ = 'chaowu, DGD'
 
-import datetime
 import pysam
-import csv, argparse, math
+import csv
+import argparse
+import math
+
 
 def mean(numbers):
-    return round(float(sum(numbers)) / max(len(numbers), 1),2)
+    return round(float(sum(numbers)) / max(len(numbers), 1), 2)
+
 
 def calc_bias(forward_strand, reverse_strand):
     if forward_strand > 0 or reverse_strand > 0:
-        return round(float(abs(reverse_strand - forward_strand)) / float((reverse_strand + forward_strand)),2)
+        return round(float(abs(reverse_strand - forward_strand)) / float((reverse_strand + forward_strand)), 2)
     else:
         return float(0)
 
+
 def vaf_value(all_coverage, alt_coverage):
     if all_coverage > 0:
-        vaf = round(float(float(alt_coverage) / float(all_coverage)),2)
+        vaf = round(float(float(alt_coverage) / float(all_coverage)), 2)
     else:
         vaf = 0.0
     return vaf
+
 
 def calc_sim(pa_vector, norm_vector):
     similarity = float(0)
@@ -27,8 +32,6 @@ def calc_sim(pa_vector, norm_vector):
     if len(vec1) == len(vec2):
         i = 0
         while i < len(vec1):
-            #print "vec1: ", type(vec1[i]), vec1[i]
-            #print "vec2: ", type(vec2[i]), vec2[i]
             vec1_value = float(vec1[i])
             vec2_value = float(vec2[i])
             if max(vec1_value, vec2_value) > 0:
@@ -42,8 +45,10 @@ def calc_sim(pa_vector, norm_vector):
                 vec1[i] = float(0.0)
                 vec2[i] = float(0.0)
             i += 1
-        similarity = math.sqrt(math.pow(vec1[0]-vec2[0], 2)+math.pow(vec1[1]-vec2[1], 2)+math.pow(vec1[2]-vec2[2],2))
-    return round(similarity,2)
+        similarity = math.sqrt(math.pow(
+            vec1[0]-vec2[0], 2)+math.pow(vec1[1]-vec2[1], 2)+math.pow(vec1[2]-vec2[2], 2))
+    return round(similarity, 2)
+
 
 def calc_vaf(input_bam, chr, pos, alt_allele):
     samfile = pysam.AlignmentFile(input_bam, "rU")
@@ -65,6 +70,7 @@ def calc_vaf(input_bam, chr, pos, alt_allele):
         samfile.close()
         return vaf
 
+
 def calc_coverage(input_bam, chr, pos, alt_allele):
     samfile = pysam.AlignmentFile(input_bam, "rU")
     sam_pileup = samfile.pileup(chr, pos-1, pos+1, truncate=True)
@@ -80,6 +86,7 @@ def calc_coverage(input_bam, chr, pos, alt_allele):
                     alt_coverage += 1
         samfile.close()
         return alt_coverage
+
 
 def calc_strandbias(input_bam, chr, pos, alt_allele):
     samfile = pysam.AlignmentFile(input_bam, "rU")
@@ -103,6 +110,15 @@ def calc_strandbias(input_bam, chr, pos, alt_allele):
         samfile.close()
         return bias
 
+
+def calc_sim_feature(sample, chrm, start, alt, max_vaf, sim_features):
+    cov = calc_coverage(sample, chrm, start, alt)
+    bias = calc_strandbias(sample, chrm, start, alt)
+    features = [cov, vaf, bias]
+    sim = calc_sim(sim_features, features)
+    return sim
+
+
 def fetch_mq(input_bam, chr, pos, alt_allele):
     samfile = pysam.AlignmentFile(input_bam, "rU")
     sam_pileup = samfile.pileup(chr, pos-1, pos+1, truncate=True)
@@ -115,9 +131,11 @@ def fetch_mq(input_bam, chr, pos, alt_allele):
                 except:
                     base = ''
                 if base == alt_allele:
-                    mapping_qual.append(float(pileupread.alignment.mapping_quality))
+                    mapping_qual.append(
+                        float(pileupread.alignment.mapping_quality))
         samfile.close()
         return mapping_qual
+
 
 def fetch_read(input_bam, chr, pos, alt_allele):
     samfile = pysam.AlignmentFile(input_bam, "rU")
@@ -134,8 +152,10 @@ def fetch_read(input_bam, chr, pos, alt_allele):
                     samfile.close()
                     return read
 
-def is_psuedoregion(sample_id, chr, pos, pseudoregion_file, pseudo_log = None):
-    pseudo_region_file = csv.reader(open(pseudoregion_file, "rU"), delimiter="\t")
+
+def is_psuedoregion(sample_id, chr, pos, pseudoregion_file, pseudo_log=None):
+    pseudo_region_file = csv.reader(
+        open(pseudoregion_file, "rU"), delimiter="\t")
     is_pseudo = False
 
     for pseudo_region in pseudo_region_file:
@@ -143,20 +163,25 @@ def is_psuedoregion(sample_id, chr, pos, pseudoregion_file, pseudo_log = None):
         pseudo_start = int(pseudo_region[1])
         pseudo_end = int(pseudo_region[2])
         if chr == pseudo_chr and pos >= pseudo_start and pos <= pseudo_end:
-            region = str(pseudo_chr) + "\t" + str(pseudo_start) + "\t" + str(pseudo_end)
-            info = "Pseudoregion found for " + str(sample_id) + ':' + str(chr) + ":" + str(pos) + " - (" + region + ")"
+            region = str(pseudo_chr) + "\t" + \
+                str(pseudo_start) + "\t" + str(pseudo_end)
+            info = "Pseudoregion found for " + \
+                str(sample_id) + ':' + str(chr) + ":" + \
+                str(pos) + " - (" + region + ")"
             print(info)
             is_pseudo = True
     return is_pseudo
+
 
 def split_list(parser, string):
     split_list = [testcode.strip() for testcode in string.split(',')]
     return split_list
 
+
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input_bam", help="input .bam file", 
+    parser.add_argument("--input_bam", help="input .bam file",
                         dest="input_bam", required=True, type=str)
     parser.add_argument("--input_variants", help="input variants, tab separated",
                         dest="input_variants", required=True, type=str)
@@ -173,7 +198,7 @@ def main():
                         type=lambda x: split_list(parser, x))
     parser.add_argument("--batch_control_bams",
                         help=".bam comma-separated list to use as batch controls",
-                        dest="batch_controls", 
+                        dest="batch_controls",
                         required=True,
                         type=lambda x: split_list(parser, x))
 
@@ -199,9 +224,9 @@ def main():
     roi = csv.reader(open(input_variants, "rU"), delimiter="\t")
 
     output_file_writer = open(output_file, "w")
-    output_file_writer.write("Sample"+"\t"+"Chr"+"\t"+"Pos"+"\t"+"Alt"+"\t"+"Coverage"+"\t"+"Bias"+"\t"+"VAF"+"\t"+"Control Sim1"+"\t"+"Control_Sim2"+"\t"+"Batch Sim"+"\n")
-
-    variant_features = []
+    output_file_writer.write("Sample" + "\t" + "Chr" + "\t" + "Pos" + "\t" + "Alt" + "\t" +
+                             "Coverage" + "\t" + "Bias" + "\t" + "VAF" + "\t" +
+                             "Control Sim1" + "\t" + "Control_Sim2" + "\t" + "Batch Sim" + "\n")
 
     for variant in roi:
         try:
@@ -218,7 +243,6 @@ def main():
             forward_strand = float(0)
             reverse_strand = float(0)
             strand_bias = float(0.0)
-            mapping_qual = []
             all_coverage = int(0)
             read = ""
 
@@ -227,11 +251,9 @@ def main():
                 alt_coverage = calc_coverage(input_bam, chrm, start, alt)
                 vaf = calc_vaf(input_bam, chrm, start, alt)
                 strand_bias = calc_strandbias(input_bam, chrm, start, alt)
-                mapping_qual = fetch_mq(input_bam, chrm, start, alt)
                 sim_features = [alt_coverage, vaf, strand_bias]
 
-                # calculate vaf from normal controls
-                # NOTE refactor
+                # calculate control_sim1 feature for control with highest VAF
                 normal_dict = {}
                 for normal_control in normal_controls:
                     vaf = calc_vaf(normal_control, chrm, start, alt)
@@ -239,137 +261,40 @@ def main():
 
                 norm_sample = max(normal_dict, key=normal_dict.get)
                 norm_max_vaf = normal_dict[norm_sample]
-                
-                norm_cov = calc_coverage(norm_sample, chrm, start, alt)
-                norm_bias = calc_strandbias(norm_sample, chrm, start, alt)
-                norm_features = [norm_cov, norm_max_vaf, norm_bias]
-                control_sim1 = calc_sim(sim_features, norm_features)
+                control_sim1 = calc_sim_feature(
+                    norm_sample, chrm, start, alt, norm_max_vaf, sim_features)
                 features.append(control_sim1)
 
+                # calculate control_sim2 feature for remaining control
                 del normal_dict[norm_sample]
                 norm_sample = max(normal_dict, key=normal_dict.get)
                 norm_max_vaf = normal_dict[norm_sample]
-                
-                norm_cov = calc_coverage(norm_sample, chrm, start, alt)
-                norm_bias = calc_strandbias(norm_sample, chrm, start, alt)
-                norm_features = [norm_cov, norm_max_vaf, norm_bias]
-                control_sim2 = calc_sim(sim_features, norm_features)
+                control_sim2 = calc_sim_feature(
+                    norm_sample, chrm, start, alt, norm_max_vaf, sim_features)
                 features.append(control_sim2)
 
-                # old routine below
-                '''
-                norm1_vaf = calc_vaf(normal_sample1, chrm, start, alt)
-                norm2_vaf = calc_vaf(normal_sample2, chrm, start, alt)
-                norm3_vaf = -0.1
-                if normal_sample3 is not None and len(normal_sample3) > 0:
-                    norm3_vaf = calc_vaf(normal_sample3, chrm, start, alt)
-                norm4_vaf = -0.1
-                if normal_sample4 is not None and len(normal_sample4) > 0:
-                    norm4_vaf = calc_vaf(normal_sample4, chrm, start, alt)
-
-                list_vaf = [norm1_vaf, norm2_vaf, norm3_vaf, norm4_vaf]
-                max_vaf = max(list_vaf)
-                if norm1_vaf == max_vaf:
-                    norm_sample = normal_sample1
-                elif norm2_vaf == max_vaf:
-                    norm_sample = normal_sample2
-                elif norm3_vaf == max_vaf:
-                    norm_sample = normal_sample3
-                else:
-                    norm_sample = normal_sample4
-
-                norm_cov = calc_coverage(norm_sample, chrm, start, alt)
-                norm_bias = calc_strandbias(norm_sample, chrm, start, alt)
-                norm_features = [norm_cov, max_vaf, norm_bias]
-
-                norm_sim = calc_sim(sim_features, norm_features)
-                features.append(norm_sim)
-
-                list_vaf.remove(max_vaf)
-                max_vaf = max(list_vaf)
-                if norm1_vaf == max_vaf and norm_sample != normal_sample1:
-                    norm_sample2 = normal_sample1
-                elif norm2_vaf == max_vaf and norm_sample != normal_sample2:
-                    norm_sample2 = normal_sample2
-                elif norm3_vaf == max_vaf and norm_sample != normal_sample3:
-                    norm_sample2 = normal_sample3
-                else:
-                    norm_sample2 = normal_sample4
-
-                norm2_cov = calc_coverage(norm_sample2, chrm, start, alt)
-                norm2_bias = calc_strandbias(norm_sample2, chrm, start, alt)
-                norm2_features = [norm2_cov, max_vaf, norm2_bias]
-
-                norm2_sim = calc_sim(sim_features, norm2_features)
-                features.append(norm2_sim)
-                '''
-
-                ##calculate vaf from sample of same batch
-                # NOTE refactor
+                # calculate batch_sim feature for batch sample with highest VAF
                 batch_dict = {}
                 for batch_control in batch_controls:
                     vaf = calc_vaf(batch_control, chrm, start, alt)
                     batch_dict[batch_control] = vaf
-                
+
                 batch_sample = max(batch_dict, key=batch_dict.get)
                 batch_max_vaf = batch_dict[batch_sample]
-                
-                batch_cov = calc_coverage(batch_sample, chrm, start, alt)
-                batch_bias = calc_strandbias(batch_sample, chrm, start, alt)
-                batch_features = [batch_cov, batch_max_vaf, batch_bias]
-                batch_sim = calc_sim(sim_features, batch_features)
-                features.append(batch_sim)
+                batch_sim = calc_sim_feature(
+                    batch_sample, chrm, start, alt, batch_max_vaf, sim_features)
 
-                # old routine below
-                '''
-                sample1_vaf = calc_vaf(batch_sample1, chrm, start, alt)
-                
-                sample2_vaf = -0.1
-                if batch_sample2 is not None and len(batch_sample2) > 0:
-                    sample2_vaf = calc_vaf(batch_sample2, chrm, start, alt)
-                
-                sample3_vaf = -0.1
-                if batch_sample3 is not None and len(batch_sample3) > 0:
-                    sample3_vaf = calc_vaf(batch_sample3, chrm, start, alt)
-
-                sample4_vaf = -0.1
-                if batch_sample4 is not None and len(batch_sample4) > 0:
-                    sample4_vaf = calc_vaf(batch_sample4, chrm, start, alt)
-
-                sample5_vaf = -0.1
-                if batch_sample5 is not None and len(batch_sample5) > 0:
-                    sample5_vaf = calc_vaf(batch_sample5, chrm, start, alt)
-
-                batch_sample = batch_sample1
-                batch_vaf = [sample1_vaf, sample2_vaf, sample3_vaf, sample4_vaf, sample5_vaf]
-                batch_max_vaf = max(batch_vaf)
-
-                if sample1_vaf == batch_max_vaf:
-                    batch_sample = batch_sample1
-                elif sample2_vaf == batch_max_vaf:
-                    batch_sample = batch_sample2
-                elif sample3_vaf == batch_max_vaf:
-                    batch_sample = batch_sample3
-                elif sample4_vaf == batch_max_vaf:
-                    batch_sample = batch_sample4
-                else:
-                    batch_sample = batch_sample5
-
-                batch_cov = calc_coverage(batch_sample, chrm, start, alt)
-                batch_bias = calc_strandbias(batch_sample, chrm, start, alt)
-                batch_features = [batch_cov, batch_max_vaf, batch_bias]
-                batch_sim = calc_sim(sim_features, batch_features)
-                features.append(batch_sim)
-                '''
-                #print features
-                output_file_writer.write(sample_id+"\t"+chrm+"\t"+str(start)+"\t"+alt+"\t"+str(alt_coverage)+"\t"+str(strand_bias)+"\t"+str(vaf)+"\t"+str(control_sim1)+"\t"+str(control_sim2)+"\t"+str(batch_sim)+"\n")
-
-                variant_features.append(features)
-        except ValueError as e:
+                # write features to output file
+                output_file_writer.write(sample_id + "\t" + chrm + "\t" + str(start) + "\t" + alt +
+                                         "\t" + str(alt_coverage) + "\t" + str(strand_bias) +
+                                         "\t" + str(vaf) + "\t" + str(control_sim1) + "\t" +
+                                         str(control_sim2) + "\t" + str(batch_sim) + "\n")
+        except IndexError as e:
             print "Variant is not in proper format: ", variant, e
             pass
-                
+
         samfile.close()
+
 
 if __name__ == '__main__':
     main()
