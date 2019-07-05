@@ -1,0 +1,375 @@
+__author__ = 'chaowu, DGD'
+
+import datetime
+import pysam
+import csv, argparse, math
+
+def mean(numbers):
+    return round(float(sum(numbers)) / max(len(numbers), 1),2)
+
+def calc_bias(forward_strand, reverse_strand):
+    if forward_strand > 0 or reverse_strand > 0:
+        return round(float(abs(reverse_strand - forward_strand)) / float((reverse_strand + forward_strand)),2)
+    else:
+        return float(0)
+
+def vaf_value(all_coverage, alt_coverage):
+    if all_coverage > 0:
+        vaf = round(float(float(alt_coverage) / float(all_coverage)),2)
+    else:
+        vaf = 0.0
+    return vaf
+
+def calc_sim(pa_vector, norm_vector):
+    similarity = float(0)
+    vec1 = list(pa_vector)
+    vec2 = list(norm_vector)
+    if len(vec1) == len(vec2):
+        i = 0
+        while i < len(vec1):
+            #print "vec1: ", type(vec1[i]), vec1[i]
+            #print "vec2: ", type(vec2[i]), vec2[i]
+            vec1_value = float(vec1[i])
+            vec2_value = float(vec2[i])
+            if max(vec1_value, vec2_value) > 0:
+                if vec1_value >= vec2_value:
+                    vec1[i] = float(vec1_value/vec1_value)
+                    vec2[i] = float(vec2_value/vec1_value)
+                else:
+                    vec1[i] = float(vec1_value/vec2_value)
+                    vec2[i] = float(vec2_value/vec2_value)
+            else:
+                vec1[i] = float(0.0)
+                vec2[i] = float(0.0)
+            i += 1
+        similarity = math.sqrt(math.pow(vec1[0]-vec2[0], 2)+math.pow(vec1[1]-vec2[1], 2)+math.pow(vec1[2]-vec2[2],2))
+    return round(similarity,2)
+
+def calc_vaf(input_bam, chr, pos, alt_allele):
+    samfile = pysam.AlignmentFile(input_bam, "rU")
+    sam_pileup = samfile.pileup(chr, pos-1, pos+1, truncate=True)
+    alt_coverage = int(0)
+    all_coverage = int(0)
+
+    for pileupcolumn in sam_pileup:
+        for pileupread in pileupcolumn.pileups:
+            if pileupcolumn.pos == pos - 1:
+                try:
+                    base = pileupread.alignment.query_sequence[pileupread.query_position]
+                except:
+                    base = ''
+                all_coverage += 1
+                if base == alt_allele:
+                    alt_coverage += 1
+        vaf = vaf_value(all_coverage, alt_coverage)
+        samfile.close()
+        return vaf
+
+def calc_coverage(input_bam, chr, pos, alt_allele):
+    samfile = pysam.AlignmentFile(input_bam, "rU")
+    sam_pileup = samfile.pileup(chr, pos-1, pos+1, truncate=True)
+    alt_coverage = int(0)
+    for pileupcolumn in sam_pileup:
+        for pileupread in pileupcolumn.pileups:
+            if pileupcolumn.pos == pos - 1:
+                try:
+                    base = pileupread.alignment.query_sequence[pileupread.query_position]
+                except:
+                    base = ''
+                if base == alt_allele:
+                    alt_coverage += 1
+        samfile.close()
+        return alt_coverage
+
+def calc_strandbias(input_bam, chr, pos, alt_allele):
+    samfile = pysam.AlignmentFile(input_bam, "rU")
+    sam_pileup = samfile.pileup(chr, pos-1, pos+1, truncate=True)
+    forward_strand = float(0)
+    reverse_strand = float(0)
+    for pileupcolumn in sam_pileup:
+        for pileupread in pileupcolumn.pileups:
+            if pileupcolumn.pos == pos - 1:
+                try:
+                    base = pileupread.alignment.query_sequence[pileupread.query_position]
+                except:
+                    base = ''
+                if base == alt_allele:
+                    reverse = pileupread.alignment.is_reverse
+                    if reverse:
+                        reverse_strand += 1
+                    else:
+                        forward_strand += 1
+        bias = calc_bias(forward_strand, reverse_strand)
+        samfile.close()
+        return bias
+
+def fetch_mq(input_bam, chr, pos, alt_allele):
+    samfile = pysam.AlignmentFile(input_bam, "rU")
+    sam_pileup = samfile.pileup(chr, pos-1, pos+1, truncate=True)
+    mapping_qual = []
+    for pileupcolumn in sam_pileup:
+        for pileupread in pileupcolumn.pileups:
+            if pileupcolumn.pos == pos - 1:
+                try:
+                    base = pileupread.alignment.query_sequence[pileupread.query_position]
+                except:
+                    base = ''
+                if base == alt_allele:
+                    mapping_qual.append(float(pileupread.alignment.mapping_quality))
+        samfile.close()
+        return mapping_qual
+
+def fetch_read(input_bam, chr, pos, alt_allele):
+    samfile = pysam.AlignmentFile(input_bam, "rU")
+    sam_pileup = samfile.pileup(chr, pos-1, pos+1, truncate=True)
+    for pileupcolumn in sam_pileup:
+        for pileupread in pileupcolumn.pileups:
+            if pileupcolumn.pos == pos - 1:
+                try:
+                    base = pileupread.alignment.query_sequence[pileupread.query_position]
+                except:
+                    base = ''
+                if base == alt_allele:
+                    read = pileupread.alignment.query_sequence
+                    samfile.close()
+                    return read
+
+def is_psuedoregion(sample_id, chr, pos, pseudoregion_file, pseudo_log = None):
+    pseudo_region_file = csv.reader(open(pseudoregion_file, "rU"), delimiter="\t")
+    is_pseudo = False
+
+    for pseudo_region in pseudo_region_file:
+        pseudo_chr = pseudo_region[0]
+        pseudo_start = int(pseudo_region[1])
+        pseudo_end = int(pseudo_region[2])
+        if chr == pseudo_chr and pos >= pseudo_start and pos <= pseudo_end:
+            region = str(pseudo_chr) + "\t" + str(pseudo_start) + "\t" + str(pseudo_end)
+            info = "Pseudoregion found for " + str(sample_id) + ':' + str(chr) + ":" + str(pos) + " - (" + region + ")"
+            print(info)
+            is_pseudo = True
+    return is_pseudo
+
+def split_list(parser, string):
+    split_list = [testcode.strip() for testcode in string.split(',')]
+    return split_list
+
+def main():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_bam", help="input .bam file", 
+                        dest="input_bam", required=True, type=str)
+    parser.add_argument("--input_variants", help="input variants, tab separated",
+                        dest="input_variants", required=True, type=str)
+    parser.add_argument("--output_file", help="name of file for variants with generated features",
+                        dest="output_file", required=True, type=str)
+    parser.add_argument("--sample_id", help="sample ID",
+                        dest="sample_id", required=True, type=str)
+    parser.add_argument("--pseudoregions_file", help="pseudoregions file",
+                        dest="pseudoregions", required=True, type=str)
+    parser.add_argument("--normal_control_bams",
+                        help=".bam comma-separated list to use as normal controls",
+                        dest="normal_controls",
+                        required=True,
+                        type=lambda x: split_list(parser, x))
+    parser.add_argument("--batch_control_bams",
+                        help=".bam comma-separated list to use as batch controls",
+                        dest="batch_controls", 
+                        required=True,
+                        type=lambda x: split_list(parser, x))
+
+    args = parser.parse_args()
+
+    input_bam = args.input_bam
+    input_variants = args.input_variants
+    output_file = args.output_file
+    sample_id = args.sample_id
+    pseudoregions = args.pseudoregions
+    normal_controls = args.normal_controls
+    batch_controls = args.batch_controls
+
+    if len(normal_controls) != 2:
+        print("Two normal controls are required")
+        exit(1)
+
+    if len(batch_controls) < 1:
+        print("At least one batch control is required")
+        exit(1)
+
+    samfile = pysam.AlignmentFile(input_bam, "rU")
+    roi = csv.reader(open(input_variants, "rU"), delimiter="\t")
+
+    output_file_writer = open(output_file, "w")
+    output_file_writer.write("Sample"+"\t"+"Chr"+"\t"+"Pos"+"\t"+"Alt"+"\t"+"Coverage"+"\t"+"Bias"+"\t"+"VAF"+"\t"+"Control Sim1"+"\t"+"Control_Sim2"+"\t"+"Batch Sim"+"\n")
+
+    variant_features = []
+
+    for variant in roi:
+        try:
+            features = []
+
+            chrm = variant[0]
+            start = int(variant[1])
+            alt = variant[2]
+            features.append(chrm)
+            features.append(start)
+
+            # set default values for each feature
+            alt_coverage = int(0)
+            forward_strand = float(0)
+            reverse_strand = float(0)
+            strand_bias = float(0.0)
+            mapping_qual = []
+            all_coverage = int(0)
+            read = ""
+
+            is_pseudo = is_psuedoregion(sample_id, chrm, start, pseudoregions)
+            if not is_pseudo:
+                alt_coverage = calc_coverage(input_bam, chrm, start, alt)
+                vaf = calc_vaf(input_bam, chrm, start, alt)
+                strand_bias = calc_strandbias(input_bam, chrm, start, alt)
+                mapping_qual = fetch_mq(input_bam, chrm, start, alt)
+                sim_features = [alt_coverage, vaf, strand_bias]
+
+                # calculate vaf from normal controls
+                # NOTE refactor
+                normal_dict = {}
+                for normal_control in normal_controls:
+                    vaf = calc_vaf(normal_control, chrm, start, alt)
+                    normal_dict[normal_control] = vaf
+
+                norm_sample = max(normal_dict, key=normal_dict.get)
+                norm_max_vaf = normal_dict[norm_sample]
+                
+                norm_cov = calc_coverage(norm_sample, chrm, start, alt)
+                norm_bias = calc_strandbias(norm_sample, chrm, start, alt)
+                norm_features = [norm_cov, norm_max_vaf, norm_bias]
+                control_sim1 = calc_sim(sim_features, norm_features)
+                features.append(control_sim1)
+
+                del normal_dict[norm_sample]
+                norm_sample = max(normal_dict, key=normal_dict.get)
+                norm_max_vaf = normal_dict[norm_sample]
+                
+                norm_cov = calc_coverage(norm_sample, chrm, start, alt)
+                norm_bias = calc_strandbias(norm_sample, chrm, start, alt)
+                norm_features = [norm_cov, norm_max_vaf, norm_bias]
+                control_sim2 = calc_sim(sim_features, norm_features)
+                features.append(control_sim2)
+
+                # old routine below
+                '''
+                norm1_vaf = calc_vaf(normal_sample1, chrm, start, alt)
+                norm2_vaf = calc_vaf(normal_sample2, chrm, start, alt)
+                norm3_vaf = -0.1
+                if normal_sample3 is not None and len(normal_sample3) > 0:
+                    norm3_vaf = calc_vaf(normal_sample3, chrm, start, alt)
+                norm4_vaf = -0.1
+                if normal_sample4 is not None and len(normal_sample4) > 0:
+                    norm4_vaf = calc_vaf(normal_sample4, chrm, start, alt)
+
+                list_vaf = [norm1_vaf, norm2_vaf, norm3_vaf, norm4_vaf]
+                max_vaf = max(list_vaf)
+                if norm1_vaf == max_vaf:
+                    norm_sample = normal_sample1
+                elif norm2_vaf == max_vaf:
+                    norm_sample = normal_sample2
+                elif norm3_vaf == max_vaf:
+                    norm_sample = normal_sample3
+                else:
+                    norm_sample = normal_sample4
+
+                norm_cov = calc_coverage(norm_sample, chrm, start, alt)
+                norm_bias = calc_strandbias(norm_sample, chrm, start, alt)
+                norm_features = [norm_cov, max_vaf, norm_bias]
+
+                norm_sim = calc_sim(sim_features, norm_features)
+                features.append(norm_sim)
+
+                list_vaf.remove(max_vaf)
+                max_vaf = max(list_vaf)
+                if norm1_vaf == max_vaf and norm_sample != normal_sample1:
+                    norm_sample2 = normal_sample1
+                elif norm2_vaf == max_vaf and norm_sample != normal_sample2:
+                    norm_sample2 = normal_sample2
+                elif norm3_vaf == max_vaf and norm_sample != normal_sample3:
+                    norm_sample2 = normal_sample3
+                else:
+                    norm_sample2 = normal_sample4
+
+                norm2_cov = calc_coverage(norm_sample2, chrm, start, alt)
+                norm2_bias = calc_strandbias(norm_sample2, chrm, start, alt)
+                norm2_features = [norm2_cov, max_vaf, norm2_bias]
+
+                norm2_sim = calc_sim(sim_features, norm2_features)
+                features.append(norm2_sim)
+                '''
+
+                ##calculate vaf from sample of same batch
+                # NOTE refactor
+                batch_dict = {}
+                for batch_control in batch_controls:
+                    vaf = calc_vaf(batch_control, chrm, start, alt)
+                    batch_dict[batch_control] = vaf
+                
+                batch_sample = max(batch_dict, key=batch_dict.get)
+                batch_max_vaf = batch_dict[batch_sample]
+                
+                batch_cov = calc_coverage(batch_sample, chrm, start, alt)
+                batch_bias = calc_strandbias(batch_sample, chrm, start, alt)
+                batch_features = [batch_cov, batch_max_vaf, batch_bias]
+                batch_sim = calc_sim(sim_features, batch_features)
+                features.append(batch_sim)
+
+                # old routine below
+                '''
+                sample1_vaf = calc_vaf(batch_sample1, chrm, start, alt)
+                
+                sample2_vaf = -0.1
+                if batch_sample2 is not None and len(batch_sample2) > 0:
+                    sample2_vaf = calc_vaf(batch_sample2, chrm, start, alt)
+                
+                sample3_vaf = -0.1
+                if batch_sample3 is not None and len(batch_sample3) > 0:
+                    sample3_vaf = calc_vaf(batch_sample3, chrm, start, alt)
+
+                sample4_vaf = -0.1
+                if batch_sample4 is not None and len(batch_sample4) > 0:
+                    sample4_vaf = calc_vaf(batch_sample4, chrm, start, alt)
+
+                sample5_vaf = -0.1
+                if batch_sample5 is not None and len(batch_sample5) > 0:
+                    sample5_vaf = calc_vaf(batch_sample5, chrm, start, alt)
+
+                batch_sample = batch_sample1
+                batch_vaf = [sample1_vaf, sample2_vaf, sample3_vaf, sample4_vaf, sample5_vaf]
+                batch_max_vaf = max(batch_vaf)
+
+                if sample1_vaf == batch_max_vaf:
+                    batch_sample = batch_sample1
+                elif sample2_vaf == batch_max_vaf:
+                    batch_sample = batch_sample2
+                elif sample3_vaf == batch_max_vaf:
+                    batch_sample = batch_sample3
+                elif sample4_vaf == batch_max_vaf:
+                    batch_sample = batch_sample4
+                else:
+                    batch_sample = batch_sample5
+
+                batch_cov = calc_coverage(batch_sample, chrm, start, alt)
+                batch_bias = calc_strandbias(batch_sample, chrm, start, alt)
+                batch_features = [batch_cov, batch_max_vaf, batch_bias]
+                batch_sim = calc_sim(sim_features, batch_features)
+                features.append(batch_sim)
+                '''
+                #print features
+                output_file_writer.write(sample_id+"\t"+chrm+"\t"+str(start)+"\t"+alt+"\t"+str(alt_coverage)+"\t"+str(strand_bias)+"\t"+str(vaf)+"\t"+str(control_sim1)+"\t"+str(control_sim2)+"\t"+str(batch_sim)+"\n")
+
+                variant_features.append(features)
+        except ValueError as e:
+            print "Variant is not in proper format: ", variant, e
+            pass
+                
+        samfile.close()
+
+if __name__ == '__main__':
+    main()
