@@ -1,24 +1,33 @@
-import argparse, csv, pickle, datetime
+import argparse, pickle, uuid
+import matplotlib
+matplotlib.use('agg')
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
+from mpl_toolkits import mplot3d
 from sklearn import metrics
 
-def get_ci(dataset, features, l_limit, u_limit):
+
+def graph_ci(dataset, l_limit, u_limit):
+
+    labeled_positives = dataset[dataset["Label"] == 1]["CI_Score"].values
+    labeled_artifacts = dataset[dataset["Label"] == 0]["CI_Score"].values
 
     minor_ticks_list = [l_limit, 0.25, 0.5, 0.75, u_limit]
     minorLocator = MultipleLocator(5)
-    bins_list = [0.00, 0.056, 0.112, 0.168, 0.224,
-                 0.28, 0.336, 0.392, 0.448, 0.504,
-                 0.56, 0.616, 0.672, 0.728, 0.784,
-                 0.84, 0.896, 0.952, 1.008]
+    ci_bins_list = [0.00, 0.056, 0.112, 0.168, 0.224,
+                    0.28, 0.336, 0.392, 0.448, 0.504,
+                    0.56, 0.616, 0.672, 0.728, 0.784,
+                    0.84, 0.896, 0.952, 1.008]
     
     fig, ax = plt.subplots(1, figsize=(8, 6))
     fig.subplots_adjust(left=0.1)
     fig.subplots_adjust(top=0.9)
-    n, bins, _ = ax.hist(mis_variant_y_hat[mis_idx_true, 1], bins=bins_list,
-                         histtype='stepfilled', label='Misclassified positives')
-    ax.hist(mis_variant_y_hat[mis_idx_false, 1], bins=bins_list,
-            histtype='stepfilled', label='Misclassified artifacts')
+    n, bins, _ = ax.hist(labeled_positives, bins=ci_bins_list,
+                         histtype='stepfilled', label='Labeled true positives')
+    ax.hist(labeled_artifacts, bins=ci_bins_list,
+            histtype='stepfilled', label='Labeled artifacts')
     ax.set_xlabel('Classification score')
     ax.set_ylabel('Number of observations')
     plt.xticks(minor_ticks_list)
@@ -27,23 +36,10 @@ def get_ci(dataset, features, l_limit, u_limit):
     plt.axvline(x=l_limit, linestyle='dashed', color='red')
     plt.axvline(x=u_limit, linestyle='dashed', color='red')
     
-    if traceback is not None: #search for the variants in the traceback directory
-        caption = ""
-        for element in mis_list:
-            variant = getVariant(traceback, str(element[0]), str(element[2]), str(element[4]))
-            caption += "\t" + str(element[1]) + "\t" + variant + "\n"
-    else:
-        caption = ""
-        for element in mis_list:
-            caption += "\t" + str(element[1]) + ":\t" + str(element[0]) + "\t" + str(element[2]) + "\t" + str(element[3]) + "\t" + str(element[4]) + "\n"
-
     plt.legend(loc='best')
     plt_str = 'confidence_interval_' + str(uuid.uuid4()) + '.png'
-    plt.savefig(plt_str)
-    
-    print "CI plot saved: " + plt_str
-    print "\n\tCI Score\t\tVariant"
-    print caption
+    plt.savefig(plt_str) 
+    print("CI plot saved successfully: {0}".format(plt_str))
 
 
 def apply_model(picmod, test_set, l_limit, u_limit):
@@ -58,7 +54,6 @@ def apply_model(picmod, test_set, l_limit, u_limit):
 
     print(metrics.classification_report(expected, predicted))
     print(metrics.confusion_matrix(expected, predicted))
-    print("\n")
 
     num_positives = len(test_set[test_set.CI_Score > u_limit])
     num_artifacts = len(test_set[test_set.CI_Score < l_limit]) 
@@ -66,6 +61,8 @@ def apply_model(picmod, test_set, l_limit, u_limit):
     print("Number of variants with CI scores > {0}:\t{1}".format(u_limit, num_positives))
     print("Number of variants with CI scores < {0}:\t{1}".format(l_limit, num_artifacts))
     print("Number of variants between {0} and {1}:\t{2}".format(l_limit, u_limit, num_uncertain))
+
+    graph_ci(test_set, l_limit, u_limit)
 
     misclass_list = list()
     for i, (exp_class, pre_class) in enumerate(zip(expected, predicted)):
@@ -75,9 +72,11 @@ def apply_model(picmod, test_set, l_limit, u_limit):
 
     if misclass_list:
         misclass_df = pd.DataFrame(data=misclass_list, columns=test_set.columns)
+        misclass_df.sort_values(by=['CI_Score'], inplace=True)
         print("\n{0} misclassifications occurred:\n".format(len(misclass_list)))
         print(misclass_df.to_string())
-    
+        graph_ci(misclass_df, l_limit, u_limit) 
+
 
 def main():
     parser = argparse.ArgumentParser(description='RandomForest classification')
