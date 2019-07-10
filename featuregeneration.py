@@ -111,7 +111,7 @@ def calc_strandbias(input_bam, chr, pos, alt_allele):
         return bias
 
 
-def calc_sim_feature(sample, chrm, start, alt, max_vaf, sim_features):
+def calc_sim_feature(sample, chrm, start, alt, vaf, sim_features):
     cov = calc_coverage(sample, chrm, start, alt)
     bias = calc_strandbias(sample, chrm, start, alt)
     features = [cov, vaf, bias]
@@ -185,10 +185,10 @@ def main():
                         dest="input_bam", required=True, type=str)
     parser.add_argument("--input_variants", help="input variants, tab separated",
                         dest="input_variants", required=True, type=str)
-    parser.add_argument("--output_file", help="name of file for variants with generated features",
-                        dest="output_file", required=True, type=str)
     parser.add_argument("--sample_id", help="sample ID",
                         dest="sample_id", required=True, type=str)
+    parser.add_argument("--class_type", help='either "POS" or "NEG"',
+                        dest="class_type", required=True, type=str)
     parser.add_argument("--pseudoregions_file", help="pseudoregions file",
                         dest="pseudoregions", required=True, type=str)
     parser.add_argument("--normal_control_bams",
@@ -206,8 +206,8 @@ def main():
 
     input_bam = args.input_bam
     input_variants = args.input_variants
-    output_file = args.output_file
     sample_id = args.sample_id
+    class_type = args.class_type
     pseudoregions = args.pseudoregions
     normal_controls = args.normal_controls
     batch_controls = args.batch_controls
@@ -220,9 +220,14 @@ def main():
         print("At least one batch control is required")
         exit(1)
 
+    if class_type not in ["POS", "NEG"]:
+        print('"POS" or "NEG" are the only two valid class types')
+        exit(1)
+
     samfile = pysam.AlignmentFile(input_bam, "rU")
     roi = csv.reader(open(input_variants, "rU"), delimiter="\t")
 
+    output_file = sample_id + '_' + class_type + ".features.txt"
     output_file_writer = open(output_file, "w")
     output_file_writer.write("Sample" + "\t" + "Chr" + "\t" + "Pos" + "\t" + "Alt" + "\t" +
                              "Coverage" + "\t" + "Bias" + "\t" + "VAF" + "\t" +
