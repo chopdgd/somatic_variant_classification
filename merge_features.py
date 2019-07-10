@@ -8,7 +8,7 @@ from argparse import RawTextHelpFormatter
 
 def merge(filepaths, output_filename):
 
-    features = ['Sample', 'Coverage', 'Bias', 'VAF',
+    features = ['Sample', 'Chrm', 'Pos', 'Alt', 'Coverage', 'Bias', 'VAF',
                 'Control Sim1', 'Control Sim2', 'Batch Sim', 'Label']
 
     with open(output_filename, 'w') as outfile:
