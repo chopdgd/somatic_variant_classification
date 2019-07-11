@@ -1,3 +1,5 @@
+__author__ = 'markwelsh, DGD'
+
 from sklearn import metrics
 import matplotlib
 matplotlib.use('agg')
@@ -65,7 +67,7 @@ def apply_model(picmod, test_set, l_limit, u_limit):
         u_limit, num_positives))
     print("Number of variants with CI scores < {0}:\t{1}".format(
         l_limit, num_artifacts))
-    print("Number of variants between {0} and {1}:\t{2}".format(
+    print("Number of variants between {0} and {1}:\t{2}\n".format(
         l_limit, u_limit, num_uncertain))
 
     graph_ci(test_set, l_limit, u_limit)
@@ -81,6 +83,17 @@ def apply_model(picmod, test_set, l_limit, u_limit):
             data=misclass_list, columns=test_set.columns)
         misclass_df.sort_values(by=['CI_Score'], inplace=True)
         print("\n{0} misclassifications occurred:\n".format(len(misclass_list)))
+
+        num_positives = len(misclass_df[misclass_df.CI_Score > u_limit])
+        num_artifacts = len(misclass_df[misclass_df.CI_Score < l_limit])
+        num_uncertain = len(misclass_df) - num_positives - num_artifacts
+        print("Number of misclassifications with CI scores > {0}:\t{1}".format(
+            u_limit, num_positives))
+        print("Number of misclassifications with CI scores < {0}:\t{1}".format(
+            l_limit, num_artifacts))
+        print("Number of misclassifications between {0} and {1}:\t{2}\n".format(
+            l_limit, u_limit, num_uncertain))
+
         print(misclass_df.to_string())
         graph_ci(misclass_df, l_limit, u_limit)
 
