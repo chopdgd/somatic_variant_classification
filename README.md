@@ -9,10 +9,10 @@
 ### Setup
 Create a Python environment via pyenv by creating a new virtualenv, activating
 it, and installing the provided requirements.
-```shell
-pyenv 2.7.10 virtualenv som-var-env
-pyenv activate som-var-env
-pip install -r requirements.txt
+```console
+$ pyenv 2.7.10 virtualenv som-var-env
+$ pyenv activate som-var-env
+$ pip install -r requirements.txt
 ```
 
 ### Generating Features
@@ -25,8 +25,8 @@ only time-consuming/manual aspect of this workflow.
 
 Once a datafile (e.g. `inputs.txt`) is in the proper tab separated format
 `SAMPLE_ID CLASS_TYPE VARIANT_FILE SAMPLE_BAM NORMAL_BAMS BATCH_BAMS`, run:
-```shell
-./auto_featuregeneration.sh inputs.txt
+```console
+$ ./auto_featuregeneration.sh inputs.txt
 ```
 
 This will create a `features/` directory and populate it with an updated
@@ -37,15 +37,15 @@ While a single "VARIANT_FILE" can be used to a train a model, this is not very
 useful. All the files in the new `features/` directory can be combined into one
 text file using `merge_features.py`:
 
-```shell
-python merge_features.py --directory features/ --output_filename allfeatures.txt
+```console
+$ python merge_features.py --directory features/ --output_filename allfeatures.txt
 ```
 
 `train_model.py` makes use of sklearn's RandomForestClassifier utility and
 Pickle to save the trained model for later use. A single model can be created
 with default arguments:
-```shell
-python train_model.py --training_data allfeatures.txt
+```console
+$ python train_model.py --training_data allfeatures.txt
 ```
 
 A brief report will be output to the console displaying the parameters provided
@@ -58,24 +58,24 @@ forest, the depth of each tree in the forest, and weights for the positive and
 negative classes. 
 
 For example, over 1,000 models can be generated with one command:
-```shell
-python train_model.py \
-  --training_data allfeatures.txt \
-  --iterate \
-  --trees 50 201 50 \
-  --leaves 8 22 2 \
-  --weights 1 101 10 1 101 10
+```console
+$ python train_model.py \
+    --training_data allfeatures.txt \
+    --iterate \
+    --trees 50 201 50 \
+    --leaves 8 22 2 \
+    --weights 1 101 10 1 101 10
 ```
 
 ### Applying a Model
 A model that was saved can be loaded and applied to another dataset made with
 `merge_features.py` by using `apply_model.py`:
-```shell
-python apply_model.py \
-  --pickle_model mymodel.sav \
-  --test_set mytestset.tsv \
-  --lower_limit 0.05 \
-  --upper_limit 0.90
+```console
+$ python apply_model.py \
+    --pickle_model mymodel.sav \
+    --test_set mytestset.tsv \
+    --lower_limit 0.05 \
+    --upper_limit 0.90
 ```
 where `--lower_limit` and `--upper_limit` are the boundaries of the "uncertain"
 region. Ideally, no misclassifications occur outside the region of uncertainty.
