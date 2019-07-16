@@ -1,14 +1,15 @@
 # Somatic Variant Classification
 
-## Description
-
-
 ## Usage
+
+### Requirements
++ Python 2.7
++ tab-delimited files containing variants in format `Chr    Pos    Allele`
 
 ### Setup
 Create a Python environment via pyenv by creating a new virtualenv, activating
 it, and installing the provided requirements.
-```bash
+```shell
 pyenv 2.7.10 virtualenv som-var-env
 pyenv activate som-var-env
 pip install -r requirements.txt
@@ -24,7 +25,7 @@ only time-consuming/manual aspect of this workflow.
 
 Once a datafile (e.g. `inputs.txt`) is in the proper tab separated format
 `SAMPLE_ID CLASS_TYPE VARIANT_FILE SAMPLE_BAM NORMAL_BAMS BATCH_BAMS`, run:
-```bash
+```shell
 ./auto_featuregeneration.sh inputs.txt
 ```
 
@@ -36,14 +37,14 @@ While a single "VARIANT_FILE" can be used to a train a model, this is not very
 useful. All the files in the new `features/` directory can be combined into one
 text file using `merge_features.py`:
 
-```bash
-python merge_features.py --directory features/ --output_filename allfeatures.txt`
+```shell
+python merge_features.py --directory features/ --output_filename allfeatures.txt
 ```
 
 `train_model.py` makes use of sklearn's RandomForestClassifier utility and
 Pickle to save the trained model for later use. A single model can be created
 with default arguments:
-```bash
+```shell
 python train_model.py --training_data allfeatures.txt
 ```
 
@@ -57,7 +58,7 @@ forest, the depth of each tree in the forest, and weights for the positive and
 negative classes. 
 
 For example, over 1,000 models can be generated with one command:
-```bash
+```shell
 python train_model.py \
   --training_data allfeatures.txt \
   --iterate \
@@ -69,7 +70,7 @@ python train_model.py \
 ### Applying a Model
 A model that was saved can be loaded and applied to another dataset made with
 `merge_features.py` by using `apply_model.py`:
-```bash
+```shell
 python apply_model.py \
   --pickle_model mymodel.sav \
   --test_set mytestset.tsv \
@@ -82,6 +83,4 @@ This can be a major criteria in model selection.
 
 This tool will output a histogram of confidence interval scores for all variants
 in the `--test_set` as well as any misclassifications, if applicable. 
-
-
 
