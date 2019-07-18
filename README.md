@@ -1,4 +1,4 @@
-# Identification of True Somatic Variant Using Machine Learning
+# Identification of True Somatic Variants Using Machine Learning
 
 ## Usage
 
