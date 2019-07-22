@@ -41,7 +41,8 @@ text file using `merge_features.py`:
 $ python merge_features.py --directory features/ --output_filename allfeatures.txt
 ```
 
-`train_model.py` makes use of sklearn's RandomForestClassifier utility and
+`train_model.py` makes use of sklearn's
+[RandomForestClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html) utility and
 Pickle to save the trained model for later use. A single model can be created
 with default arguments:
 ```console
@@ -52,10 +53,10 @@ A brief report will be output to the console displaying the parameters provided
 to the classifier, the Pickle filename, as well as any variants that were
 mislabeled by this newly trained model.
 
-This tool also provides arguments for creating many models iterativly. This is
-done by using a combination of the number of models to include in the Random 
-forest, the depth of each tree in the forest, and weights for the positive and
-negative classes. 
+This tool also provides arguments for creating many models iteratively. This is
+done by using a combination of a) the number of models to include in the Random 
+forest, b) the depth of each tree in the forest, and c) weights for the positive
+and negative classes. 
 
 For example, over 1,000 models can be generated with one command:
 ```console
