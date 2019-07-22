@@ -17,11 +17,9 @@ $ pip install -r requirements.txt
 
 ### Generating Features
 In order to train/apply a Random Forest model, features need to be generated for
-coverage, bias, VAF, similarity score vs a control sample, similarity score vs
-another control samples, and similarity vs a intra-run batch sample. This
+coverage, bias, VAF, similarity score vs two control samples, and similarity vs a intra-run batch sample. This
 process can be automated using `auto_featuregeneration.sh`, a wrapper for the
-`featuregeneration.py` script. Procuring the data needed for this script is the
-only time-consuming/manual aspect of this workflow.
+`featuregeneration.py` script. 
 
 Once a datafile (e.g. `inputs.txt`) is in the proper tab separated format
 `SAMPLE_ID CLASS_TYPE VARIANT_FILE SAMPLE_BAM NORMAL_BAMS BATCH_BAMS`, run:
