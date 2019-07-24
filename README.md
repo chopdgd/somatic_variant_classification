@@ -16,7 +16,7 @@ one file containing positive variants and another containing artifacts
 + at least one other sorted sample BAM file sequenced in the same batch
 
 ### Setup
-Create a Python environment via virtualenv, activating it, and installing 
+Create a Python environment via virtualenv, activate it, and install 
 the provided requirements.
 ```console
 $ virtualenv --python=python2.7 som-var-env
