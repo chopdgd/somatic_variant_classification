@@ -3,15 +3,24 @@
 ## Usage
 
 ### Requirements
+
+#### Environment
 + Python 2.7
-+ tab-delimited files containing variants in format `Chr    Pos    Allele`
++ [virtualenv](https://virtualenv.pypa.io/en/latest/installation/)
+
+### Per Sample
++ two tab-delimited files containing variants in format `Chr    Pos    Allele`,
+one file containing positive variants and another containing artifacts
++ a sorted sample BAM and index file
++ two sorted negative-control BAM files and their respective index files
++ at least one other sorted sample BAM file sequenced in the same batch
 
 ### Setup
-Create a Python environment via pyenv by creating a new virtualenv, activating
-it, and installing the provided requirements.
+Create a Python environment via virtualenv, activating it, and installing 
+the provided requirements.
 ```console
-$ pyenv 2.7.10 virtualenv som-var-env
-$ pyenv activate som-var-env
+$ virtualenv --python=python2.7 som-var-env
+$ source som-var-env/bin/activate
 $ pip install -r requirements.txt
 ```
 
@@ -29,6 +38,24 @@ $ ./auto_featuregeneration.sh inputs.txt
 
 This will create a `features/` directory and populate it with an updated
 "VARIANT_FILE" that now includes features.
+
+#### Example
+For two samples sequenced in the same batch, "TEST01" and "TEST02", `inputs.txt` would contain 4 lines:
+```
+TEST01  NEG test01_neg.txt  test01.bam  ctrl1.bam,ctrl2.bam batchX-1.bam,batchX-2.bam
+TEST01  POS test01_pos.txt  test01.bam  ctrl1.bam,ctrl2.bam batchX-1.bam,batchX-2.bam
+TEST02  NEG test02_neg.txt  test02.bam  ctrl1.bam,ctrl2.bam batchX-1.bam,batchX-2.bam
+TEST02  POS test02_pos.txt  test02.bam  ctrl1.bam,ctrl2.bam batchX-1.bam,batchX-2.bam
+```
+
+If "TEST01" and "TEST02" were sequenced in _different_ batches, `inputs.txt`
+would change for the BATCH_BAMS field:
+```
+TEST01  NEG test01_neg.txt  test01.bam  ctrl1.bam,ctrl2.bam batchX-1.bam,batchX-2.bam
+TEST01  POS test01_pos.txt  test01.bam  ctrl1.bam,ctrl2.bam batchX-1.bam,batchX-2.bam
+TEST02  NEG test02_neg.txt  test02.bam  ctrl1.bam,ctrl2.bam batchY-1.bam,batchY-2.bam
+TEST02  POS test02_pos.txt  test02.bam  ctrl1.bam,ctrl2.bam batchY-1.bam,batchY-2.bam
+```
 
 ### Training a Model
 While a single "VARIANT_FILE" can be used to a train a model, this is not very
