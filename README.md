@@ -8,7 +8,7 @@
 + Python 2.7
 + [virtualenv](https://virtualenv.pypa.io/en/latest/installation/)
 
-### Per Sample
+#### Per Sample
 + two tab-delimited files containing variants in format `Chr    Pos    Allele`,
 one file containing positive variants and another containing artifacts
 + a sorted sample BAM and index file
